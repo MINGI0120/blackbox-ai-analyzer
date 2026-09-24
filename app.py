@@ -6,6 +6,7 @@ import numpy as np
 import streamlit as st
 from ultralytics import YOLO
 
+from accident_classifier import recommend_accident_type
 from fault_modifiers import (
     calculate_adjusted_fault,
     detect_fault_modifiers
@@ -66,13 +67,25 @@ st.warning(
 rule_options = get_rule_options()
 
 selected_rule_name = st.selectbox(
-    "사고 유형을 선택하세요",
+    "직접 선택 또는 AI 추천 실패 시 사용할 사고 유형",
     options=list(rule_options.keys()),
-    help="사고 상황과 가장 가까운 유형을 선택해주세요."
+    help=(
+        "AI 영상 추천의 신뢰도가 낮거나 자동 적용을 끈 경우 "
+        "이 사고 유형을 사용합니다."
+    )
 )
 
 selected_rule_key = rule_options[selected_rule_name]
 selected_rule = get_fault_rule(selected_rule_key)
+
+apply_video_recommendation = st.checkbox(
+    "AI가 영상에서 추천한 사고 유형을 과실비율 계산에 적용",
+    value=True,
+    help=(
+        "영상 추천 신뢰도가 60% 이상일 때만 자동으로 적용하며, "
+        "그보다 낮으면 직접 선택한 사고 유형을 사용합니다."
+    )
+)
 
 with st.expander("선택한 사고 유형의 기준 보기"):
     st.write(f"**공식 기준 도표:** {selected_rule['chart']}")
@@ -115,8 +128,8 @@ if detected_modifiers:
         "이 수정 요소는 어느 차량에 해당합니까?",
         options=[
             "수정 요소를 적용하지 않음",
-            f"차량 A: {selected_rule['vehicle_a']}",
-            f"차량 B: {selected_rule['vehicle_b']}"
+            "차량 A에 적용",
+            "차량 B에 적용"
         ],
         help=(
             "사고 설명만으로 위반 차량을 확정할 수 없으므로 "
@@ -194,7 +207,9 @@ if st.button("AI 사고 분석 시작", type="primary"):
 
             tracked_ids = set()
             track_history = defaultdict(lambda: deque(maxlen=60))
+            track_box_history = defaultdict(lambda: deque(maxlen=60))
             track_classes = {}
+            frame_vehicle_history = []
 
             movement_threshold = max(width, height) * 0.02
 
@@ -232,6 +247,7 @@ if st.button("AI 사고 분석 시작", type="primary"):
                     }
 
                     frame_detections = []
+                    frame_vehicles = []
                     current_frame_risk = None
 
                     if result.boxes is not None:
@@ -248,15 +264,35 @@ if st.button("AI 사고 분석 시작", type="primary"):
                             if object_name in current_counts:
                                 current_counts[object_name] += 1
 
+                        xyxy_boxes = (
+                            result.boxes.xyxy
+                            .cpu()
+                            .tolist()
+                        )
+
+                        # 추적 번호가 없어도 프레임에 나온 차량은 모두 기록
+                        for xyxy_box, class_number in zip(
+                            xyxy_boxes,
+                            class_numbers
+                        ):
+                            object_name = result.names[class_number]
+
+                            if object_name in {
+                                "car",
+                                "bus",
+                                "truck",
+                                "motorcycle"
+                            }:
+                                frame_vehicles.append(
+                                    {
+                                        "class_name": object_name,
+                                        "box": xyxy_box
+                                    }
+                                )
+
                         if result.boxes.id is not None:
                             xywh_boxes = (
                                 result.boxes.xywh
-                                .cpu()
-                                .tolist()
-                            )
-
-                            xyxy_boxes = (
-                                result.boxes.xyxy
                                 .cpu()
                                 .tolist()
                             )
@@ -290,6 +326,10 @@ if st.button("AI 사고 분석 시작", type="primary"):
                                     (center_x, center_y)
                                 )
 
+                                track_box_history[track_id].append(
+                                    xyxy_box
+                                )
+
                                 frame_detections.append(
                                     {
                                         "track_id": track_id,
@@ -304,6 +344,8 @@ if st.button("AI 사고 분석 시작", type="primary"):
                                 height,
                                 pair_distance_history
                             )
+
+                    frame_vehicle_history.append(frame_vehicles)
 
                     for object_name, count in current_counts.items():
                         maximum_counts[object_name] = max(
@@ -542,8 +584,81 @@ if st.button("AI 사고 분석 시작", type="primary"):
                     width="stretch"
                 )
 
-            base_fault_a = selected_rule["fault_a"]
-            base_fault_b = selected_rule["fault_b"]
+            video_recommendation = recommend_accident_type(
+                track_history,
+                track_box_history,
+                track_classes,
+                width,
+                height,
+                frame_vehicle_history
+            )
+
+            recommendation_key = video_recommendation.get("rule_key")
+            recommendation_confidence = video_recommendation.get(
+                "confidence",
+                0
+            )
+
+            video_rule_applied = (
+                apply_video_recommendation
+                and recommendation_key is not None
+                and recommendation_confidence >= 60
+            )
+
+            if video_rule_applied:
+                analysis_rule = get_fault_rule(
+                    recommendation_key
+                )
+            else:
+                analysis_rule = selected_rule
+
+            st.divider()
+            st.subheader("🤖 AI 영상 사고 유형 추천")
+
+            recommendation_column_1, recommendation_column_2 = (
+                st.columns(2)
+            )
+
+            recommendation_column_1.metric(
+                "AI 추천 사고 유형",
+                video_recommendation["title"]
+            )
+
+            recommendation_column_2.metric(
+                "영상 분석 신뢰도",
+                f"{recommendation_confidence}%"
+            )
+
+            st.write(
+                f"**영상 판단 근거:** "
+                f"{video_recommendation['reason']}"
+            )
+
+            if video_rule_applied:
+                st.success(
+                    f"영상 추천 결과를 적용하여 "
+                    f"'{analysis_rule['name']}' 기준으로 "
+                    "과실비율을 계산합니다."
+                )
+            elif not apply_video_recommendation:
+                st.info(
+                    "AI 영상 추천 자동 적용이 꺼져 있어 사용자가 "
+                    "직접 선택한 사고 유형을 적용합니다."
+                )
+            else:
+                st.info(
+                    "영상 추천 신뢰도가 60%보다 낮아 사용자가 "
+                    "직접 선택한 사고 유형을 적용합니다."
+                )
+
+            st.warning(
+                "영상 추천은 객체의 화면상 이동과 크기 변화를 이용한 "
+                "1차 추정입니다. 차선, 신호 및 충돌 전후 상황을 함께 "
+                "확인해야 합니다."
+            )
+
+            base_fault_a = analysis_rule["fault_a"]
+            base_fault_b = analysis_rule["fault_b"]
 
             adjusted_fault_a, adjusted_fault_b, applied_addition = (
                 calculate_adjusted_fault(
@@ -561,7 +676,7 @@ if st.button("AI 사고 분석 시작", type="primary"):
 
             with fault_column_a:
                 st.write("### 차량 A")
-                st.write(selected_rule["vehicle_a"])
+                st.write(analysis_rule["vehicle_a"])
 
                 st.metric(
                     "예상 과실",
@@ -576,7 +691,7 @@ if st.button("AI 사고 분석 시작", type="primary"):
 
             with fault_column_b:
                 st.write("### 차량 B")
-                st.write(selected_rule["vehicle_b"])
+                st.write(analysis_rule["vehicle_b"])
 
                 st.metric(
                     "예상 과실",
@@ -590,22 +705,22 @@ if st.button("AI 사고 분석 시작", type="primary"):
                 )
 
             st.write(
-                f"**적용 사고 유형:** {selected_rule['name']}"
+                f"**적용 사고 유형:** {analysis_rule['name']}"
             )
 
             st.write(
-                f"**공식 기준 도표:** {selected_rule['chart']}"
+                f"**공식 기준 도표:** {analysis_rule['chart']}"
             )
 
             st.write(
-                f"**기본 판단 근거:** {selected_rule['reason']}"
+                f"**기본 판단 근거:** {analysis_rule['reason']}"
             )
 
             if applied_addition > 0:
                 target_name = (
-                    selected_rule["vehicle_a"]
+                    analysis_rule["vehicle_a"]
                     if modifier_target == "A"
-                    else selected_rule["vehicle_b"]
+                    else analysis_rule["vehicle_b"]
                 )
 
                 st.error(
@@ -635,13 +750,13 @@ if st.button("AI 사고 분석 시작", type="primary"):
 
             st.link_button(
                 "손해보험협회 공식 기준 확인",
-                selected_rule["source_url"]
+                analysis_rule["source_url"]
             )
 
             st.warning(
-                "이 결과는 입력된 설명을 키워드 방식으로 분석한 참고용 "
-                "예상입니다. 수정 요소는 사고와의 관련성과 블랙박스, "
-                "속도 기록 등의 증거가 확인될 때 적용될 수 있습니다."
+                "이 결과는 영상의 객체 이동과 입력된 설명을 함께 "
+                "분석한 참고용 예상입니다. 실제 과실비율은 차선, 신호, "
+                "속도 기록 등의 증거와 공식 판단에 따라 달라집니다."
             )
 
             st.subheader("사용자가 입력한 사고 상황")
