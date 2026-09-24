@@ -1,4 +1,5 @@
 import math
+from collections import deque
 
 
 ROAD_USER_CLASSES = {
@@ -74,6 +75,54 @@ def calculate_box_gap(box_a, box_b):
     )
 
 
+def calculate_bottom_center_distance(box_a, box_b):
+    ax1, ay1, ax2, ay2 = box_a
+    bx1, by1, bx2, by2 = box_b
+
+    first_x = (ax1 + ax2) / 2
+    first_y = ay2
+
+    second_x = (bx1 + bx2) / 2
+    second_y = by2
+
+    return math.sqrt(
+        (first_x - second_x) ** 2
+        + (first_y - second_y) ** 2
+    )
+
+
+def check_approaching(distance_history):
+    if len(distance_history) < 6:
+        return False, 0.0
+
+    sample_size = max(
+        2,
+        len(distance_history) // 3
+    )
+
+    old_average = sum(
+        list(distance_history)[:sample_size]
+    ) / sample_size
+
+    recent_average = sum(
+        list(distance_history)[-sample_size:]
+    ) / sample_size
+
+    distance_decrease = old_average - recent_average
+
+    if old_average <= 0:
+        return False, 0.0
+
+    decrease_ratio = distance_decrease / old_average
+
+    approaching = (
+        distance_decrease > 0.01
+        and decrease_ratio >= 0.08
+    )
+
+    return approaching, max(0.0, decrease_ratio)
+
+
 def get_risk_level(score):
     if score >= 80:
         return "높음"
@@ -90,8 +139,12 @@ def get_risk_level(score):
 def analyze_frame_risk(
     detections,
     frame_width,
-    frame_height
+    frame_height,
+    pair_distance_history=None
 ):
+    if pair_distance_history is None:
+        pair_distance_history = {}
+
     frame_diagonal = math.sqrt(
         frame_width ** 2 + frame_height ** 2
     )
@@ -115,14 +168,12 @@ def analyze_frame_risk(
             first_class = first["class_name"]
             second_class = second["class_name"]
 
-            # 사람끼리 가까운 경우는 교통 충돌 후보에서 제외
             if (
                 first_class == "person"
                 and second_class == "person"
             ):
                 continue
 
-            # 두 객체 중 적어도 하나는 차량이어야 함
             if (
                 first_class not in VEHICLE_CLASSES
                 and second_class not in VEHICLE_CLASSES
@@ -131,6 +182,37 @@ def analyze_frame_risk(
 
             first_box = first["box"]
             second_box = second["box"]
+
+            pair_key = tuple(
+                sorted([
+                    first["track_id"],
+                    second["track_id"]
+                ])
+            )
+
+            if pair_key not in pair_distance_history:
+                pair_distance_history[pair_key] = deque(
+                    maxlen=15
+                )
+
+            center_distance = calculate_bottom_center_distance(
+                first_box,
+                second_box
+            )
+
+            normalized_center_distance = (
+                center_distance / frame_diagonal
+                if frame_diagonal > 0
+                else 1.0
+            )
+
+            pair_distance_history[pair_key].append(
+                normalized_center_distance
+            )
+
+            approaching, decrease_ratio = check_approaching(
+                pair_distance_history[pair_key]
+            )
 
             iou = calculate_iou(
                 first_box,
@@ -148,24 +230,40 @@ def analyze_frame_risk(
                 else 1.0
             )
 
-            risk_score = 0
+            geometric_score = 0
 
-            # 화면에서 경계 상자가 겹치는 경우
             if iou > 0:
-                risk_score = min(
-                    100,
-                    70 + int(iou * 150)
+                geometric_score = min(
+                    75,
+                    55 + int(iou * 130)
                 )
 
-            # 경계 상자가 매우 가까운 경우
             elif normalized_gap <= 0.02:
-                risk_score = 65
+                geometric_score = 55
 
             elif normalized_gap <= 0.05:
-                risk_score = 50
+                geometric_score = 45
 
             elif normalized_gap <= 0.08:
-                risk_score = 40
+                geometric_score = 35
+
+            risk_score = geometric_score
+
+            if approaching:
+                approach_bonus = min(
+                    35,
+                    15 + int(decrease_ratio * 100)
+                )
+
+                risk_score = min(
+                    100,
+                    geometric_score + approach_bonus
+                )
+
+            else:
+                # 가까워지는 움직임이 확인되지 않으면
+                # 화면 겹침만으로 높은 위험 점수를 주지 않음
+                risk_score = min(risk_score, 45)
 
             if risk_score < 40:
                 continue
@@ -178,7 +276,12 @@ def analyze_frame_risk(
                 "second_id": second["track_id"],
                 "second_class": second_class,
                 "iou": round(iou, 3),
-                "pixel_gap": round(pixel_gap, 1)
+                "pixel_gap": round(pixel_gap, 1),
+                "approaching": approaching,
+                "distance_decrease_percent": round(
+                    decrease_ratio * 100,
+                    1
+                )
             }
 
             if (

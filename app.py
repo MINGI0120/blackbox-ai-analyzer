@@ -206,6 +206,7 @@ if st.button("AI 사고 분석 시작", type="primary"):
 
             highest_risk_event = None
             highest_risk_frame = None
+            pair_distance_history = {}
 
             with st.spinner(
                 "AI가 영상, 이동 경로와 위험 장면을 분석하고 있습니다..."
@@ -300,7 +301,8 @@ if st.button("AI 사고 분석 시작", type="primary"):
                             current_frame_risk = analyze_frame_risk(
                                 frame_detections,
                                 width,
-                                height
+                                height,
+                                pair_distance_history
                             )
 
                     for object_name, count in current_counts.items():
@@ -483,6 +485,21 @@ if st.button("AI 사고 분석 시작", type="primary"):
                     f"{highest_risk_event['pixel_gap']}픽셀"
                 )
 
+                approaching_text = (
+                    "확인됨"
+                    if highest_risk_event.get("approaching", False)
+                    else "확인되지 않음"
+                )
+
+                st.write(
+                    f"**서로 접근하는 움직임:** {approaching_text}"
+                )
+
+                st.write(
+                    f"**화면상 거리 감소율:** "
+                    f"{highest_risk_event.get('distance_decrease_percent', 0)}%"
+                )
+
                 if highest_risk_frame is not None:
                     risk_frame_rgb = cv2.cvtColor(
                         highest_risk_frame,
@@ -492,16 +509,17 @@ if st.button("AI 사고 분석 시작", type="primary"):
                     st.image(
                         risk_frame_rgb,
                         caption=(
-                            "화면상 객체 거리와 겹침을 기준으로 선택한 "
+                            "객체의 접근 움직임, 화면상 거리와 겹침을 "
+                            "기준으로 선택한 "
                             "최고 위험 장면 후보"
                         ),
                         width="stretch"
                     )
 
                 st.warning(
-                    "객체 경계 상자의 겹침은 원근감 때문에 실제 충돌이 "
-                    "아닌 경우도 있습니다. 검토가 필요한 장면 후보로 "
-                    "사용해주세요."
+                    "접근 움직임과 객체 경계 상자의 겹침은 원근감이나 "
+                    "카메라 움직임 때문에 실제 충돌과 다르게 분석될 수 "
+                    "있습니다. 검토가 필요한 장면 후보로 사용해주세요."
                 )
 
             else:
