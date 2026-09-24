@@ -6,6 +6,8 @@ import numpy as np
 import streamlit as st
 from ultralytics import YOLO
 
+from fault_rules import get_fault_rule, get_rule_options
+
 
 st.set_page_config(
     page_title="AI 블랙박스 사고 분석",
@@ -35,6 +37,7 @@ def get_direction(points, movement_threshold):
     if abs(move_x) > abs(move_y):
         if move_x > 0:
             return "화면 오른쪽으로 이동"
+
         return "화면 왼쪽으로 이동"
 
     if move_y > 0:
@@ -44,15 +47,37 @@ def get_direction(points, movement_threshold):
 
 
 st.title("🚗 AI 블랙박스 사고 분석")
+
 st.write(
     "블랙박스 영상과 사고 상황을 입력하면 "
-    "AI가 객체의 종류와 이동 경로를 분석합니다."
+    "AI가 객체의 종류, 이동 경로 및 기본 과실비율을 분석합니다."
 )
 
 st.warning(
-    "분석 결과는 참고용 예상이며, 실제 과실비율은 "
-    "보험사·경찰·법원의 판단에 따라 달라질 수 있습니다."
+    "분석 결과는 참고용 예상이며, 실제 과실비율은 사고 당시의 신호, "
+    "속도, 도로 상태와 보험사·경찰·법원의 판단에 따라 달라질 수 있습니다."
 )
+
+rule_options = get_rule_options()
+
+selected_rule_name = st.selectbox(
+    "사고 유형을 선택하세요",
+    options=list(rule_options.keys()),
+    help="사고 상황과 가장 가까운 유형을 선택해주세요."
+)
+
+selected_rule_key = rule_options[selected_rule_name]
+selected_rule = get_fault_rule(selected_rule_key)
+
+with st.expander("선택한 사고 유형의 기준 보기"):
+    st.write(f"**공식 기준 도표:** {selected_rule['chart']}")
+    st.write(f"**차량 A:** {selected_rule['vehicle_a']}")
+    st.write(f"**차량 B:** {selected_rule['vehicle_b']}")
+    st.write(
+        f"**기본 과실비율:** "
+        f"{selected_rule['vehicle_a']} {selected_rule['fault_a']}% / "
+        f"{selected_rule['vehicle_b']} {selected_rule['fault_b']}%"
+    )
 
 uploaded_video = st.file_uploader(
     "블랙박스 영상을 선택하세요",
@@ -60,8 +85,11 @@ uploaded_video = st.file_uploader(
 )
 
 situation = st.text_area(
-    "사고 상황을 입력하세요",
-    placeholder="예: 회전교차로 안에서 주행 중 진입 차량과 충돌했습니다.",
+    "사고 상황을 자세히 입력하세요",
+    placeholder=(
+        "예: 앞차가 급정지하여 뒤에서 충돌했습니다. "
+        "신호는 정상 작동 중이었고 비가 내리고 있었습니다."
+    ),
     height=150
 )
 
@@ -101,6 +129,7 @@ if st.button("AI 사고 분석 시작", type="primary"):
             total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+
             writer = cv2.VideoWriter(
                 output_path,
                 fourcc,
@@ -122,7 +151,8 @@ if st.button("AI 사고 분석 시작", type="primary"):
             ]
 
             maximum_counts = {
-                object_name: 0 for object_name in target_objects
+                object_name: 0
+                for object_name in target_objects
             }
 
             tracked_ids = set()
@@ -154,11 +184,17 @@ if st.button("AI 사고 분석 시작", type="primary"):
                     )[0]
 
                     current_counts = {
-                        object_name: 0 for object_name in target_objects
+                        object_name: 0
+                        for object_name in target_objects
                     }
 
                     if result.boxes is not None:
-                        class_numbers = result.boxes.cls.int().cpu().tolist()
+                        class_numbers = (
+                            result.boxes.cls
+                            .int()
+                            .cpu()
+                            .tolist()
+                        )
 
                         for class_number in class_numbers:
                             object_name = result.names[class_number]
@@ -168,7 +204,12 @@ if st.button("AI 사고 분석 시작", type="primary"):
 
                         if result.boxes.id is not None:
                             boxes = result.boxes.xywh.cpu().tolist()
-                            track_ids = result.boxes.id.int().cpu().tolist()
+                            track_ids = (
+                                result.boxes.id
+                                .int()
+                                .cpu()
+                                .tolist()
+                            )
 
                             for box, track_id, class_number in zip(
                                 boxes,
@@ -181,6 +222,7 @@ if st.button("AI 사고 분석 시작", type="primary"):
 
                                 tracked_ids.add(track_id)
                                 track_classes[track_id] = object_name
+
                                 track_history[track_id].append(
                                     (center_x, center_y)
                                 )
@@ -215,18 +257,26 @@ if st.button("AI 사고 분석 시작", type="primary"):
                     frame_number += 1
 
                     if total_frames > 0:
-                        progress = min(frame_number / total_frames, 1.0)
+                        progress = min(
+                            frame_number / total_frames,
+                            1.0
+                        )
+
                         progress_bar.progress(progress)
 
                     status_text.write(
-                        f"분석 중: {frame_number} / {total_frames} 프레임"
+                        f"분석 중: {frame_number} / "
+                        f"{total_frames} 프레임"
                     )
 
             video.release()
             writer.release()
 
             progress_bar.progress(1.0)
-            status_text.success("영상 객체 및 이동 경로 분석이 완료되었습니다.")
+
+            status_text.success(
+                "영상 객체 및 이동 경로 분석이 완료되었습니다."
+            )
 
             st.subheader("AI 탐지 및 추적 결과")
 
@@ -244,10 +294,14 @@ if st.button("AI 사고 분석 시작", type="primary"):
                     detected_objects.items()
                 ):
                     column.metric(name, count)
+
             else:
                 st.info("주요 도로 객체가 탐지되지 않았습니다.")
 
-            st.metric("추적된 객체 번호 수", len(tracked_ids))
+            st.metric(
+                "추적된 객체 번호 수",
+                len(tracked_ids)
+            )
 
             movement_rows = []
 
@@ -257,7 +311,10 @@ if st.button("AI 사고 분석 시작", type="primary"):
                 movement_rows.append(
                     {
                         "객체 번호": track_id,
-                        "객체 종류": track_classes.get(track_id, "unknown"),
+                        "객체 종류": track_classes.get(
+                            track_id,
+                            "unknown"
+                        ),
                         "이동 방향": get_direction(
                             points,
                             movement_threshold
@@ -268,6 +325,7 @@ if st.button("AI 사고 분석 시작", type="primary"):
 
             if movement_rows:
                 st.subheader("객체별 이동 방향")
+
                 st.dataframe(
                     movement_rows,
                     width="stretch",
@@ -286,6 +344,60 @@ if st.button("AI 사고 분석 시작", type="primary"):
                     width="stretch"
                 )
 
+            st.divider()
+            st.subheader("⚖️ 기본 과실비율 분석")
+
+            fault_column_a, fault_column_b = st.columns(2)
+
+            with fault_column_a:
+                st.write(f"### 차량 A")
+                st.write(selected_rule["vehicle_a"])
+
+                st.metric(
+                    "기본 과실",
+                    f"{selected_rule['fault_a']}%"
+                )
+
+                st.progress(
+                    selected_rule["fault_a"] / 100
+                )
+
+            with fault_column_b:
+                st.write(f"### 차량 B")
+                st.write(selected_rule["vehicle_b"])
+
+                st.metric(
+                    "기본 과실",
+                    f"{selected_rule['fault_b']}%"
+                )
+
+                st.progress(
+                    selected_rule["fault_b"] / 100
+                )
+
+            st.write(
+                f"**적용 사고 유형:** {selected_rule['name']}"
+            )
+
+            st.write(
+                f"**공식 기준 도표:** {selected_rule['chart']}"
+            )
+
+            st.write(
+                f"**판단 근거:** {selected_rule['reason']}"
+            )
+
+            st.link_button(
+                "손해보험협회 공식 기준 확인",
+                selected_rule["source_url"]
+            )
+
+            st.warning(
+                "위 과실비율은 선택한 사고 유형의 기본 비율입니다. "
+                "과속, 신호위반, 선진입, 급정지, 야간 및 도로 상태 등의 "
+                "수정 요소는 아직 반영되지 않았습니다."
+            )
+
             st.subheader("사용자가 입력한 사고 상황")
             st.write(situation)
 
@@ -298,6 +410,6 @@ if st.button("AI 사고 분석 시작", type="primary"):
                 )
 
             st.info(
-                "현재 이동 방향은 영상 화면의 픽셀 변화를 기준으로 계산됩니다. "
-                "다음 단계에서 접근 속도 변화와 사고 위험 장면을 분석합니다."
+                "객체 탐지 결과와 과실비율 기준은 현재 별도로 계산됩니다. "
+                "다음 단계에서 사고 설명에 따른 수정 요소를 연결합니다."
             )
