@@ -74,3 +74,16 @@ footer .brand-name{font-size:14px;letter-spacing:-.4px}
 @media(max-width:650px){header .brand{flex:1;gap:6px}header .brand-name{font-size:14px;max-width:180px}header .brandmark{font-size:23px}header .nav-cta{flex-shrink:0}.screen-app footer .brand-name{font-size:12px}.screen-app footer>span{display:none}.screen-app footer small{display:none}}
 
 .robot-recovery{position:absolute;right:24px;bottom:105px;z-index:5}.robot-recovery button{font-size:12px}
+
+.conditional-result{padding:0!important;overflow:hidden;border:1px solid #4e613e;border-radius:8px;background:#192016}
+.conditional-panel{border:0!important;border-radius:0!important}
+.reference-tabs{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:18px 32px;border-bottom:1px solid #3e4e32;background:#131b10}
+.reference-tabs>span{font-size:13px;color:#b6c5a8;margin-right:auto}
+.reference-tab{border:1px solid #526542;border-radius:6px;padding:10px 15px;color:#dce8d1;background:transparent;font-size:13px}
+.reference-tab[aria-pressed=true]{background:#d1f98b;color:#182311;border-color:#d1f98b}
+.fault-focus .reference-condition{font-size:14px;line-height:1.8;color:#d5e5c3;border-left:3px solid #a7cb7b;padding-left:14px;margin-top:20px}
+.reference-source{font-size:14px;color:#d1f98b;display:inline-block;margin:5px 0 20px}
+.conditional-result .verdict-check{line-height:1.9;color:#b6c5a8}
+@media(max-width:760px){.reference-tabs{padding:16px 23px}.reference-tabs>span{flex-basis:100%}}
+
+.conditional-panel .verdict-hero{justify-content:flex-start}.reference-more-laws{font-size:13px;line-height:1.8;color:#b6c5a8}.reference-more-laws summary{font-size:13px;padding:15px 0}.reference-more-laws a{color:#d1f98b}
