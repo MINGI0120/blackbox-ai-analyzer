@@ -30,7 +30,13 @@
   container.replaceChildren();const doc=container.ownerDocument;
   function add(parent,tag,content,cls){const el=doc.createElement(tag);if(content!=null)el.textContent=content;if(cls)el.className=cls;parent.append(el);return el;}
   const info=explain(report,key);
-  if(info.held){container.className='result-block fault-focus held';add(container,'div','추가 확인이 필요합니다','verdict-kicker');add(container,'h3',info.title);add(container,'p',info.reason);return;}
+  const rec=report.recommendation||{};
+  function scenarioDetails(){
+   if(rec.type_candidates?.length){add(container,'h3','사고 유형 후보 · 입력 설명 기반');for(const item of rec.type_candidates){const row=add(container,'article',null,'verdict-check');add(row,'b',item.title);add(row,'p','설명에서 찾은 표현: '+(item.matched_terms||[]).join(', '));}}
+   if(rec.visual_evidence?.length){add(container,'h3','영상에서 얻은 단서');for(const value of rec.visual_evidence)add(container,'p',value);}
+   if(rec.required_checks?.length){add(container,'h3','비율 판단 전에 확인할 내용');const ul=add(container,'ul');for(const value of rec.required_checks)add(ul,'li',value);}
+  }
+  if(info.held){container.className='result-block fault-focus held';add(container,'div','추가 확인이 필요합니다','verdict-kicker');add(container,'h3',rec.type_candidates?.length?'사고 유형 후보를 찾았습니다. 과실비율은 추가 확인이 필요합니다.':info.title);add(container,'p',info.reason);scenarioDetails();return;}
   container.className='result-block fault-focus';
   const hero=add(container,'div',null,'verdict-hero');add(hero,'div','예상 과실비율','verdict-kicker');add(hero,'h3',report.rule.name,'verdict-type');
   const ratios=add(hero,'div',null,'verdict-ratios');
@@ -45,6 +51,7 @@
   if(report.recommendation?.premise_source==='user_description_unverified')add(check,'p','후방 추돌이라는 입력 설명을 전제로 계산했습니다. 충돌 상대와 진행 방향을 영상으로 검증한 결과는 아닙니다.');
   if(report.fault.ratio_change_summary)add(check,'p',report.fault.ratio_change_summary);
   if(report.fault.unknowns?.length){const more=add(check,'details');add(more,'summary','이번 분석에서 확인되지 않은 내용');const ul=add(more,'ul');for(const value of report.fault.unknowns)add(ul,'li',value);}
+  scenarioDetails();
  }
  root.ClearframeReport={explain,render};
  if(typeof module!=='undefined')module.exports=root.ClearframeReport;

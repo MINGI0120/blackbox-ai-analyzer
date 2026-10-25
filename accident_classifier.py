@@ -713,7 +713,7 @@ def _recommend_visual_candidate(
     return best_candidate
 
 
-def recommend_accident_type(*args, **kwargs):
+def _recommend_safe_candidate(*args, **kwargs):
     """Separate an image-motion candidate from a supported fault-rule decision.
 
     Bounding-box growth does not identify the collision participant or prove
@@ -767,3 +767,15 @@ def recommend_accident_type(*args, **kwargs):
         result["reason"] += " 후방 추돌이라는 입력 설명을 전제로 한 후보이며 충돌 상대를 영상으로 검증한 결과는 아닙니다."
         result["premise_source"] = "user_description_unverified"
     return result
+
+
+def recommend_accident_type(track_history, track_box_history, track_classes,
+                            frame_width, frame_height, frame_vehicle_history=None,
+                            ego_motion=None, lane_analysis=None, situation=""):
+    from accident_taxonomy import attach_scenarios
+    candidate = _recommend_safe_candidate(
+        track_history, track_box_history, track_classes, frame_width, frame_height,
+        frame_vehicle_history, ego_motion, lane_analysis, situation=situation)
+    return attach_scenarios(candidate, situation, track_history, track_box_history,
+                            track_classes, frame_width, frame_height,
+                            ego_motion or {}, lane_analysis or {})

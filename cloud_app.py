@@ -1,21 +1,25 @@
 from pathlib import Path
 import tempfile
 import shutil
+import hashlib
 import streamlit as st
 import streamlit.components.v1 as components
 from cloud_runtime import CloudJob
 from fault_rules import FAULT_RULES
 
+ASSET_NAMES = ('index.html', 'app.js', 'flow.js', 'analysis.js', 'cloud-bridge.js', 'report-view.js', 'style.css', 'flow.css', 'analysis.css', 'refinements.css')
+ROOT = Path(__file__).parent
+ASSET_SOURCE = ROOT / 'frontend' if (ROOT / 'frontend').is_dir() else ROOT
+ASSET_VERSION = hashlib.sha256(b''.join((ASSET_SOURCE / name).read_bytes() for name in ASSET_NAMES)).hexdigest()
+
 @st.cache_resource
-def component_assets():
-    root = Path(__file__).parent
-    source = root / 'frontend' if (root / 'frontend').is_dir() else root
+def component_assets(asset_version):
     target = tempfile.TemporaryDirectory(prefix='roadlens-ui-')
-    for name in ('index.html', 'app.js', 'flow.js', 'analysis.js', 'cloud-bridge.js', 'report-view.js', 'style.css', 'flow.css', 'analysis.css', 'refinements.css'):
-        shutil.copyfile(source / name, Path(target.name) / name)
+    for name in ASSET_NAMES:
+        shutil.copyfile(ASSET_SOURCE / name, Path(target.name) / name)
     return target
 
-screen = components.declare_component('roadlens_screen', path=component_assets().name)
+screen = components.declare_component('roadlens_screen', path=component_assets(ASSET_VERSION).name)
 @st.fragment(run_every=1)
 def interface():
     job = st.session_state.cloud_job

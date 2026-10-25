@@ -415,6 +415,7 @@ def analyze_video(input_path, directory, situation, selected_rule_key, apply_vid
 
     situation_rule_applied = (
         situation_recommendation is not None
+        and not video_recommendation.get('requires_rule_review', False)
         and situation_rule_key is not None
         and situation_recommendation.get("confidence", 0) >= 60
         and situation_video_supported
@@ -484,7 +485,7 @@ def analyze_video(input_path, directory, situation, selected_rule_key, apply_vid
         'tracked_objects':len(tracked_ids),'risk':highest_risk_event,
         'lane':lane_analysis_result,'ego':ego_motion_result,
         'recommendation':video_recommendation,'rule':analysis_rule,
-        'rule_source':'situation' if situation_rule_applied else 'video' if video_rule_applied else 'manual',
+        'rule_source':'unresolved' if analysis_on_hold else 'situation' if situation_rule_applied else 'video' if video_rule_applied else 'manual',
         'fault':fault_estimate,'modifiers':detected_modifiers,
         'movement':[{'id':i,'class':track_classes.get(i,'unknown'),'direction':get_direction(track_history[i],movement_threshold)} for i in sorted(tracked_ids)],
         'notice':'제공된 프로그램의 추정 결과입니다. 신뢰도는 프로그램 내부 점수이며 통계적으로 검증된 정확도가 아닙니다. 실제 과실 판단을 대신하지 않습니다.'
