@@ -52,6 +52,25 @@
    const keys=(rec.type_candidates||[]).map(x=>x.compatible_rule||x.key);
    for(const k of [...new Set(keys)]){const type=types[k];if(type){add(container,'p',type.reason);for(const name of type.laws){const law=laws[name];const row=add(container,'article',null,'verdict-check');const link=add(row,'a',law.title+' ↗');link.href=law.url;link.target='_blank';link.rel='noopener';add(row,'p',law.text);}}}
   }
+  const choices=report.legal_review?.review_options||[];
+  if(info.held && choices.length){
+   const confirmation=add(container,'div',null,'verdict-check scenario-confirmation');
+   add(confirmation,'b','영상에서 찾은 측면 접근이 어떤 사고였나요?');
+   add(confirmation,'p','설명을 다시 입력할 필요 없이 유형을 선택해 참고 기준을 확인하세요. 선택한 유형은 영상으로 확정된 사실과 구분합니다.');
+   const label=add(confirmation,'label',null,'vehicle-mapping');add(label,'span','사고 유형 확인');
+   const selector=add(label,'select');selector.setAttribute('aria-label','사고 유형 확인');
+   const empty=add(selector,'option','선택해 주세요 / 아직 모르겠습니다');empty.value='';
+   for(const option of choices){const el=add(selector,'option',option.title);el.value=option.key;}
+   const other=add(selector,'option','회전·차로 변경 등 다른 사고');other.value='other';
+   selector.value=report.legal_review.selected_key||'';
+   selector.onchange=()=>{
+    const choice=choices.find(x=>x.key===selector.value);
+    const original=report._unselectedReview||report.legal_review;
+    const review={...(choice?choice.review:original),review_options:choices,selected_key:selector.value};
+    render(container,{...report,_unselectedReview:original,legal_review:review},key);
+   };
+   if(selector.value==='other')add(confirmation,'p','교차 방향 직진 기준은 적용하지 않습니다. 아래 영상 단서와 법적 설명을 확인해주세요.');
+  }
   const references=(report.legal_review?.conditional_ratios||[]).filter(x=>/^\d+\s*:\s*\d+$/.test(x.ratio));
   if(info.held && references.length){
    container.className='result-block conditional-result';
@@ -64,7 +83,7 @@
     const item=references[index], values=item.ratio.split(':').map(Number);
     const hero=add(panel,'div',null,'verdict-hero');
     add(hero,'div','조건부 참고 과실비율 · 영상의 확정 판정 아님','verdict-kicker');
-    add(hero,'h3',rec.type_candidates?.[0]?.title||'사고 유형별 기본 기준','verdict-type');
+    add(hero,'h3',choices.find(x=>x.key===report.legal_review.selected_key)?.title||rec.type_candidates?.[0]?.title||'사고 유형별 기본 기준','verdict-type');
     add(hero,'p',item.condition,'reference-condition');
     const mapping=add(hero,'label',null,'vehicle-mapping');
     const isSide=item.a==='우측 도로 차량'&&item.b==='좌측 도로 차량';

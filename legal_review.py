@@ -25,4 +25,8 @@ def build_legal_review(recommendation):
             {'condition':common+' · 동시 진입', 'a':'우측 도로 차량', 'b':'좌측 도로 차량', 'ratio':'40 : 60', 'reason':'동시 진입 시 우측 차량의 우선관계를 반영한 기본 기준입니다.', 'url':source},
             {'condition':common+' · 명확한 선진입 확인', 'a':'먼저 진입한 차량', 'b':'나중에 진입한 차량', 'ratio':'30 : 70', 'reason':'명확한 선진입이 확인된 경우의 기준입니다. 차량의 화면 등장 순서만으로 선진입을 인정하지 않습니다.', 'url':source},
         ]
+    if not crossing and recommendation.get('temporal_candidates'):
+        crossing_review = build_legal_review({'type_candidates': [{'key': 'crossing_straight'}]})
+        crossing_review['summary'] = crossing_review['summary'].replace('입력 설명', '사용자가 선택한 사고 유형')
+        review['review_options'] = [{'key': 'crossing_straight', 'title': '교차 방향에서 두 차량이 직진하다 충돌', 'review': crossing_review}]
     return review
