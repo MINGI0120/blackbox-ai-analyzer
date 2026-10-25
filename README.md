@@ -1,7 +1,7 @@
 # 블랙박스 AI 과실비율 탐지 — 무료 온라인 버전
 
 Streamlit Community Cloud의 실행 파일은 `cloud_app.py`, Python 버전은 3.12입니다.
-기존 `app.py`는 이전 Streamlit 화면이며, 새 디자인은 `cloud_app.py`로 실행합니다.
+기존 온라인 주소의 `app.py`는 새 화면 `cloud_app.py`를 실행하는 진입점입니다. 이전 구현은 Git 기록에 보존됩니다.
 
 - 기존 Spline 로봇과 버튼 기반 화면 전환을 유지합니다.
 - 영상은 실제 Python 분석 엔진이 처리합니다. 별도 AI 서비스 API 키가 필요하지 않습니다.
