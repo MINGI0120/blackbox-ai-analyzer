@@ -36,7 +36,23 @@
    if(rec.visual_evidence?.length){add(container,'h3','영상에서 얻은 단서');for(const value of rec.visual_evidence)add(container,'p',value);}
    if(rec.required_checks?.length){add(container,'h3','비율 판단 전에 확인할 내용');const ul=add(container,'ul');for(const value of rec.required_checks)add(ul,'li',value);}
   }
-  if(info.held){container.className='result-block fault-focus held';add(container,'div','추가 확인이 필요합니다','verdict-kicker');add(container,'h3',rec.type_candidates?.length?'사고 유형 후보를 찾았습니다. 과실비율은 추가 확인이 필요합니다.':info.title);add(container,'p',info.reason);scenarioDetails();return;}
+
+  function legalReview(){
+   const review=report.legal_review;
+   add(container,'h3','판단이 어려운 부분은 법적 기준으로 설명합니다');
+   if(review){
+    add(container,'p',review.summary);
+    if(review.conditional_ratios?.length){
+     add(container,'h3','조건별 참고 과실비율 · 현재 영상의 판정값 아님');
+     add(container,'p',review.notice,'legal-note');
+     for(const item of review.conditional_ratios){const row=add(container,'article',null,'verdict-check');add(row,'b',item.condition);add(row,'h3',item.ratio);add(row,'p',item.a+' : '+item.b);add(row,'p',item.reason);const link=add(row,'a','손해보험협회 차12-1 기준 확인 ↗');link.href=item.url;link.target='_blank';link.rel='noopener';}
+    }
+    const legal=add(container,'div',null,'legal-basis');for(const law of review.laws){const row=add(legal,'article');const link=add(row,'a',law.title+' ↗');link.href=law.url;link.target='_blank';link.rel='noopener';add(row,'p',law.text);}
+   }else{add(container,'p','이전 분석 결과에는 법적 설명이 저장되지 않았습니다. 다시 분석하면 상황별 설명이 함께 표시됩니다.');}
+   const keys=(rec.type_candidates||[]).map(x=>x.compatible_rule||x.key);
+   for(const k of [...new Set(keys)]){const type=types[k];if(type){add(container,'p',type.reason);for(const name of type.laws){const law=laws[name];const row=add(container,'article',null,'verdict-check');const link=add(row,'a',law.title+' ↗');link.href=law.url;link.target='_blank';link.rel='noopener';add(row,'p',law.text);}}}
+  }
+  if(info.held){container.className='result-block fault-focus held';add(container,'div','사고 분석 및 법적 검토','verdict-kicker');add(container,'h3',rec.temporal_candidates?.length?'영상에서 측면 접근 차량을 찾았습니다.':rec.type_candidates?.length?'사고 유형 후보를 찾았습니다. 과실비율은 추가 확인이 필요합니다.':info.title);add(container,'p',info.reason);legalReview();scenarioDetails();return;}
   container.className='result-block fault-focus';
   const hero=add(container,'div',null,'verdict-hero');add(hero,'div','예상 과실비율','verdict-kicker');add(hero,'h3',report.rule.name,'verdict-type');
   const ratios=add(hero,'div',null,'verdict-ratios');

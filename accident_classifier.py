@@ -771,11 +771,63 @@ def _recommend_safe_candidate(*args, **kwargs):
 
 def recommend_accident_type(track_history, track_box_history, track_classes,
                             frame_width, frame_height, frame_vehicle_history=None,
-                            ego_motion=None, lane_analysis=None, situation=""):
+                            ego_motion=None, lane_analysis=None, situation="", fps=30.0):
     from accident_taxonomy import attach_scenarios
     candidate = _recommend_safe_candidate(
         track_history, track_box_history, track_classes, frame_width, frame_height,
         frame_vehicle_history, ego_motion, lane_analysis, situation=situation)
-    return attach_scenarios(candidate, situation, track_history, track_box_history,
+    result = attach_scenarios(candidate, situation, track_history, track_box_history,
                             track_classes, frame_width, frame_height,
                             ego_motion or {}, lane_analysis or {})
+
+    return apply_temporal_evidence(result, frame_vehicle_history, frame_width, frame_height, fps)
+
+
+def apply_temporal_evidence(result, history, width, height, fps):
+    """Rank visible approaches, not legal liability or verified collisions.
+
+    Use each identity's complete timeline. A disappearing oncoming vehicle
+    must not supply evidence for a different, later lateral approach.
+    """
+    observations = {}
+    for frame, vehicles in enumerate(history or []):
+        for v in vehicles:
+            if v.get('track_id') is None or v.get('class_name') not in VEHICLE_CLASSES:
+                continue
+            b = v['box']
+            observations.setdefault(v['track_id'], []).append((frame, b))
+    candidates = []
+    for identity, obs in observations.items():
+        if len(obs) < 6:
+            continue
+        first = obs[0][1]
+        peak_frame, peak = max(obs, key=lambda row: calculate_box_area(row[1]))
+        start_x = (first[0] + first[2]) / (2 * max(width, 1))
+        peak_x = (peak[0] + peak[2]) / (2 * max(width, 1))
+        area = calculate_box_area(peak) / max(width * height, 1)
+        growth = calculate_box_area(peak) / max(calculate_box_area(first), 1)
+        inward = abs(start_x - .5) - abs(peak_x - .5)
+        # Substantial lateral entry followed by close approach. No inference
+        # of contact from size alone; leaving the frame can also be a pass.
+        if (start_x < .28 or start_x > .72) and inward > .055 and growth > 1.8 and area > .035 and peak[3] / max(height, 1) > .48:
+            candidates.append({'track_id': identity, 'start_frame': obs[0][0],
+                'peak_frame': peak_frame, 'last_frame': obs[-1][0],
+                'start_seconds': round(obs[0][0] / max(fps, 1), 2),
+                'peak_seconds': round(peak_frame / max(fps, 1), 2),
+                'side': '왼쪽' if start_x < .5 else '오른쪽',
+                'peak_area_ratio': round(area, 4), 'area_growth': round(growth, 2),
+                'contact_confirmed': False})
+    if not candidates:
+        return result
+    candidates.sort(key=lambda c: c['peak_area_ratio'], reverse=True)
+    best = candidates[0]
+    evidence = [f"차량 #{c['track_id']}: {c['start_seconds']}초부터 {c['side']}에서 접근, {c['peak_seconds']}초에 화면상 크기 최대. 실제 접촉 여부는 미확인입니다." for c in candidates[:3]]
+    return {**result, 'rule_key': None, 'confidence': 0, 'decision_status': 'hold',
+        'requires_rule_review': True, 'visual_candidate': None,
+        'visual_evidence': evidence, 'temporal_candidates': candidates[:3],
+        'classification_source': 'visual_motion_and_description' if result.get('type_candidates') else 'visual_motion',
+        'title': '측면 접근 차량과 충돌 구간 후보를 찾았습니다',
+        'reason': f"영상의 차량별 시간 순서와 이동 경로를 분석해 {best['side']} 접근 차량을 찾았습니다. "
+                  '마주 오거나 지나가는 차량의 크기 증가를 후방 추돌 근거로 적용하지 않습니다. '
+                  '측면 접근만으로 교차로 직진·회전·차로 변경과 실제 접촉을 확정할 수 없어 과실비율은 보류합니다.',
+        'required_checks': list(dict.fromkeys(['접근 차량이 실제 충돌 상대인지', '교차 진행·회전·차로 변경 구분'] + result.get('required_checks', [])))}

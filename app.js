@@ -1,2 +1,12 @@
 const $=s=>document.querySelector(s);const events=[{time:'00:04',label:'교차로 진입',progress:33},{time:'00:07',label:'차량 간 접근',progress:58},{time:'00:09',label:'주요 장면 확인',progress:75}];document.querySelectorAll('.event').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.event').forEach(x=>x.classList.remove('active'));b.classList.add('active');const e=events[Number(b.dataset.event)];$('#scene-time').textContent=e.time+' / 00:12';$('.scene-bottom span:last-child').textContent=e.label;$('#timeline-fill').style.width=e.progress+'%';}));$('#sample-start').onclick=()=>$('#experience').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
 let objectURL=null;const video=$('#video'),file=$('#file'),status=$('#file-status');const chooseVideo=()=>{file.value='';file.click();};$('#choose-file').onclick=chooseVideo;$('#replace').onclick=chooseVideo;file.onchange=()=>loadVideo(file.files[0]);const zone=$('#dropzone');['dragenter','dragover'].forEach(e=>zone.addEventListener(e,x=>{x.preventDefault();zone.classList.add('drag')}));['dragleave','drop'].forEach(e=>zone.addEventListener(e,x=>{x.preventDefault();zone.classList.remove('drag')}));zone.addEventListener('drop',e=>loadVideo(e.dataTransfer.files[0]));function loadVideo(f){if(!f)return;if(!f.type.startsWith('video/')&&!/\.(mp4|webm|mov|m4v)$/i.test(f.name)){status.textContent='영상 파일을 선택해 주세요.';return}if(objectURL)URL.revokeObjectURL(objectURL);objectURL=URL.createObjectURL(f);video.src=objectURL;$('#filename').textContent=f.name;zone.hidden=true;$('#video-work').hidden=false;status.textContent='';return true;}video.onerror=()=>{status.textContent='이 형식은 브라우저 미리보기가 지원되지 않습니다. 사고 설명 입력 후 분석은 계속 진행할 수 있습니다.'};
+// Load the nested 3D frame after the component is mounted.
+(() => {
+ const frame=document.getElementById('hero-robot');
+ if(!frame)return;
+ const controls=document.createElement('div');controls.className='robot-recovery';
+ const retry=document.createElement('button');retry.className='text-button';retry.textContent='로봇 다시 불러오기 ↻';
+ const load=()=>{frame.src=frame.dataset.src;};retry.onclick=load;
+ controls.append(retry);frame.parentElement.append(controls);
+ requestAnimationFrame(()=>requestAnimationFrame(load));
+})();

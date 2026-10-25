@@ -6,12 +6,44 @@ import os
 import tempfile
 import threading
 import time
+import logging
+import traceback
+import uuid
 from pathlib import Path
 
 MAX_BYTES = 20 * 1024 * 1024
 GATE = threading.BoundedSemaphore(1)
 MODEL_LOCK = threading.Lock()
 os.environ.setdefault('YOLO_CONFIG_DIR', str(Path(tempfile.gettempdir()) / 'roadlens-yolo'))
+
+
+def failure_message(exc, stage, code):
+    if isinstance(exc, ValueError):
+        return str(exc)
+    if isinstance(exc, ModuleNotFoundError):
+        detail = '실행 환경에 필요한 분석 패키지가 없습니다.'
+    elif isinstance(exc, ImportError):
+        detail = '분석 패키지 또는 코드의 버전이 맞지 않습니다.'
+    elif isinstance(exc, PermissionError):
+        detail = '분석 파일이나 실행 프로그램에 접근할 권한이 없습니다.'
+    elif isinstance(exc, MemoryError):
+        detail = '분석에 사용할 메모리가 부족합니다.'
+    else:
+        detail = '분석 프로그램에서 오류가 발생했습니다.'
+    return f'{stage} 단계: {detail} 오류 종류: {type(exc).__name__}, 확인 코드: {code}. 실행 터미널의 오류 기록을 확인해 주세요.'
+
+
+def record_failure(exc, stage, code):
+    # No video or request payload is included. Full traceback stays on server.
+    detail = f'[{code}] {stage}\n' + ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    logging.getLogger(__name__).error(detail)
+    try:
+        folder = Path(os.environ.get('ROADLENS_LOG_DIR', str(Path(tempfile.gettempdir()) / 'roadlens-errors')))
+        folder.mkdir(parents=True, exist_ok=True)
+        # One rolling diagnostic file avoids accumulating user data indefinitely.
+        (folder / 'last-error.log').write_text(detail, encoding='utf-8')
+    except OSError:
+        logging.getLogger(__name__).warning('Could not save diagnostic file; see terminal output.')
 
 class CloudJob:
     def __init__(self):
@@ -58,35 +90,48 @@ class CloudJob:
     def run(self, path, request):
         request.pop('video', None)
         deadline = time.monotonic() + 600
+        stage = '분석 환경 불러오기'
         try:
             import cv2
             import torch
             torch.set_num_threads(2)
             cv2.setNumThreads(2)
+            stage = '영상 열기'
             cap = cv2.VideoCapture(str(path))
             w, h, fps, count = [cap.get(p) for p in (cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_FRAME_HEIGHT, cv2.CAP_PROP_FPS, cv2.CAP_PROP_FRAME_COUNT)]
             cap.release()
             if not all(math.isfinite(v) and v > 0 for v in (w, h, fps, count)) or w > 1280 or h > 720 or count / fps > 60 or count > 1800:
                 raise ValueError('무료 분석은 720p 이하, 60초·1,800프레임 이내 영상으로 이용해 주세요.')
+            stage = '차량 탐지 모델 준비'
             from ultralytics import YOLO
             model_path = Path(os.environ.get('ROADLENS_MODEL', str(Path(tempfile.gettempdir()) / 'roadlens-model' / 'yolo11n.pt')))
             with MODEL_LOCK:
                 if not model_path.is_file():
                     model_path.parent.mkdir(parents=True, exist_ok=True)
                     YOLO(str(model_path))
+            stage = '분석 코드 불러오기'
             from analysis_engine import analyze_video
             def progress(value, message):
+                nonlocal stage
+                stage = '결과 영상 저장' if value >= .96 else '영상 프레임 분석'
                 with self.lock:
                     self.data.update(state='running', progress=value, message=message)
+            stage = '영상 분석'
             result = analyze_video(path, path.parent, request['situation'], request['rule_key'], request.get('automatic') is True,
                                    None if request['modifier_target'] == 'none' else request['modifier_target'],
                                    progress, lambda: self.cancel.is_set() or time.monotonic() > deadline, model_path)
+            stage = '분석 보고서 저장'
             (path.parent / 'report.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
             with self.lock:
                 self.data.update(state='complete', progress=1, message='분석 완료', result=result)
         except Exception as exc:
+            code = uuid.uuid4().hex[:8]
+            if not self.cancel.is_set():
+                record_failure(exc, stage, code)
             with self.lock:
-                self.data.update(state='cancelled' if self.cancel.is_set() else 'failed', message=str(exc) if isinstance(exc, ValueError) else '분석을 완료하지 못했습니다. 더 짧은 영상으로 다시 시도해 주세요.')
+                self.data.update(state='cancelled' if self.cancel.is_set() else 'failed',
+                                 message='분석을 취소했습니다.' if self.cancel.is_set() else failure_message(exc, stage, code),
+                                 error_code=code, error_type=type(exc).__name__, error_stage=stage)
             if self.folder:
                 self.folder.cleanup()
         finally:

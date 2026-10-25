@@ -1,6 +1,7 @@
 """Headless adapter of the supplied RoadLens Streamlit analysis loop.
 The detection, trajectory, lane, motion and decision rules are preserved.
 """
+from legal_review import build_legal_review
 import math
 import subprocess
 from pathlib import Path
@@ -290,6 +291,11 @@ def analyze_video(input_path, directory, situation, selected_rule_key, apply_vid
                         pair_distance_history
                     )
 
+            # Keep per-frame identities, including time and boxes before track deques expire.
+            for vehicle in frame_vehicles:
+                match = next((d for d in frame_detections if d['box'] == vehicle['box']), None)
+                if match:
+                    vehicle['track_id'] = match['track_id']
             frame_vehicle_history.append(frame_vehicles)
 
             for object_name, count in current_counts.items():
@@ -389,6 +395,7 @@ def analyze_video(input_path, directory, situation, selected_rule_key, apply_vid
         ego_motion_result,
         lane_analysis_result,
         situation=situation,
+        fps=fps,
     )
 
     recommendation_key = video_recommendation.get("rule_key")
@@ -485,6 +492,7 @@ def analyze_video(input_path, directory, situation, selected_rule_key, apply_vid
         'tracked_objects':len(tracked_ids),'risk':highest_risk_event,
         'lane':lane_analysis_result,'ego':ego_motion_result,
         'recommendation':video_recommendation,'rule':analysis_rule,
+        'legal_review':build_legal_review(video_recommendation),
         'rule_source':'unresolved' if analysis_on_hold else 'situation' if situation_rule_applied else 'video' if video_rule_applied else 'manual',
         'fault':fault_estimate,'modifiers':detected_modifiers,
         'movement':[{'id':i,'class':track_classes.get(i,'unknown'),'direction':get_direction(track_history[i],movement_threshold)} for i in sorted(tracked_ids)],

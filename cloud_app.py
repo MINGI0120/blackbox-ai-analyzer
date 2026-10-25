@@ -7,7 +7,7 @@ import streamlit.components.v1 as components
 from cloud_runtime import CloudJob
 from fault_rules import FAULT_RULES
 
-ASSET_NAMES = ('index.html', 'app.js', 'flow.js', 'analysis.js', 'cloud-bridge.js', 'report-view.js', 'style.css', 'flow.css', 'analysis.css', 'refinements.css')
+ASSET_NAMES = ('robot-scene.html', 'index.html', 'app.js', 'flow.js', 'analysis.js', 'cloud-bridge.js', 'report-view.js', 'style.css', 'flow.css', 'analysis.css', 'refinements.css')
 ROOT = Path(__file__).parent
 ASSET_SOURCE = ROOT / 'frontend' if (ROOT / 'frontend').is_dir() else ROOT
 ASSET_VERSION = hashlib.sha256(b''.join((ASSET_SOURCE / name).read_bytes() for name in ASSET_NAMES)).hexdigest()
