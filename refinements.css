@@ -87,3 +87,5 @@ footer .brand-name{font-size:14px;letter-spacing:-.4px}
 @media(max-width:760px){.reference-tabs{padding:16px 23px}.reference-tabs>span{flex-basis:100%}}
 
 .conditional-panel .verdict-hero{justify-content:flex-start}.reference-more-laws{font-size:13px;line-height:1.8;color:#b6c5a8}.reference-more-laws summary{font-size:13px;padding:15px 0}.reference-more-laws a{color:#d1f98b}
+
+.vehicle-mapping{display:grid;gap:10px;margin-top:15px;font-size:13px;color:#c9dbb9}.vehicle-mapping select{width:100%;padding:12px;border:1px solid #526542;border-radius:6px;background:#141e10;color:#e7f2de;font:inherit}.conditional-panel .party-label{letter-spacing:0}

@@ -58,7 +58,7 @@
    const tabs=add(container,'div',null,'reference-tabs');tabs.setAttribute('role','group');tabs.setAttribute('aria-label','참고 기준 비교');
    add(tabs,'span','적용 조건별 기준 보기');
    const panel=add(container,'div',null,'fault-focus conditional-panel');
-   const buttons=[];
+   const buttons=[], vehicleChoices=new Map();
    function showReference(index){
     panel.replaceChildren();buttons.forEach((b,i)=>b.setAttribute('aria-pressed',String(i===index)));
     const item=references[index], values=item.ratio.split(':').map(Number);
@@ -66,11 +66,20 @@
     add(hero,'div','조건부 참고 과실비율 · 영상의 확정 판정 아님','verdict-kicker');
     add(hero,'h3',rec.type_candidates?.[0]?.title||'사고 유형별 기본 기준','verdict-type');
     add(hero,'p',item.condition,'reference-condition');
+    const mapping=add(hero,'label',null,'vehicle-mapping');
+    const isSide=item.a==='우측 도로 차량'&&item.b==='좌측 도로 차량';
+    add(mapping,'span',isSide?'상대 차량은 어느 쪽 도로에서 왔나요?':'블랙박스 차량은 어느 역할인가요?');
+    const select=add(mapping,'select');select.setAttribute('aria-label',isSide?'상대 차량 진입 방향':'블랙박스 차량 역할');
+    [['','선택해 주세요'],['a',isSide?'상대 차량이 왼쪽에서 진입':item.a],['b',isSide?'상대 차량이 오른쪽에서 진입':item.b]].forEach(([v,t])=>{const o=add(select,'option',t);o.value=v;});
+    select.value=vehicleChoices.get(index)||'';select.onchange=()=>{vehicleChoices.set(index,select.value);showReference(index);};
+    const mapped=!!select.value, reverse=select.value==='b';
+    const displayValues=mapped?(reverse?[values[1],values[0]]:values):[null,null];
+    const roles=mapped?(reverse?[item.b,item.a]:[item.a,item.b]):['역할 선택 필요','역할 선택 필요'];
     const ratios=add(hero,'div',null,'verdict-ratios');
-    for(let i=0;i<2;i++){const col=add(ratios,'article',null,'verdict-party party-'+(i?'b':'a'));add(col,'span','차량 '+(i?'B':'A'),'party-label');add(col,'h4',i?item.b:item.a);const value=add(col,'div',null,'party-value');add(value,'strong',String(values[i]));add(value,'span','%');}
-    const bar=add(hero,'div',null,'ratio-visual');bar.setAttribute('aria-hidden','true');for(let i=0;i<2;i++){const part=add(bar,'span',null,i?'ratio-b':'ratio-a');part.style.width=values[i]+'%';}
+    for(let i=0;i<2;i++){const col=add(ratios,'article',null,'verdict-party party-'+(i?'b':'a'));add(col,'span',roles[i],'party-label');add(col,'h4',i?'상대 차량':'블랙박스 차량');const value=add(col,'div',null,'party-value');add(value,'strong',mapped?String(displayValues[i]):'—');if(mapped)add(value,'span','%');}
+    const bar=add(hero,'div',null,'ratio-visual');bar.setAttribute('aria-hidden','true');for(let i=0;i<2;i++){const part=add(bar,'span',null,i?'ratio-b':'ratio-a');part.style.width=(mapped?displayValues[i]:50)+'%';if(!mapped)part.style.opacity='.2';}
     add(hero,'p','위 조건이 충족될 때의 기본 비율입니다.','verdict-headline');
-    add(hero,'p','차량 A·B는 표시된 역할이며, 내 차·상대 차로 자동 지정한 결과가 아닙니다.','analysis-caption');
+    add(hero,'p',mapped?'선택하신 차량 역할을 기준으로 연결한 참고 비율이며 영상으로 확인된 역할은 아닙니다.':`차량 역할을 선택하면 비율이 연결됩니다. 원래 기준: ${item.a} ${values[0]}% / ${item.b} ${values[1]}%.`,'analysis-caption');
     const reasons=add(panel,'div',null,'verdict-reasons');add(reasons,'div','WHY THIS REFERENCE','eyebrow muted');add(reasons,'h3','이 기준을 참고하는 이유');add(reasons,'p',item.reason,'plain-reason');add(reasons,'p',report.legal_review.summary,'basis-line');
     if(report.situation){const quote=add(reasons,'div',null,'situation-quote');add(quote,'span','입력하신 사고 상황');add(quote,'p',report.situation);}
     const link=add(reasons,'a','손해보험협회 기준 원문 ↗','reference-source');link.href=item.url;link.target='_blank';link.rel='noopener';
