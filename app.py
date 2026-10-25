@@ -1,2 +1,4 @@
-"""Existing Streamlit URL entrypoint for the updated web experience."""
-from cloud_app import *
+"""Streamlit entrypoint: render on every rerun and every browser session."""
+from cloud_app import main
+
+main()
