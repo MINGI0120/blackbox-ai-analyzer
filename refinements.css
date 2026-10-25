@@ -1,0 +1,74 @@
+.review-content #video-work{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:22px 32px;align-items:start}
+.review-content #video-work>.file-header{margin:0}
+.review-content #video-work>video{grid-column:1;grid-row:2;max-height:520px;position:sticky;top:0}
+.review-content #analysis-form{grid-column:2;grid-row:2;margin:0;padding:0;border:0;background:transparent;color:#20291c;min-width:0}
+.review-content #analysis-form .eyebrow{font-size:9px;color:#68785b}
+.review-content #analysis-form h3{font-size:25px;margin:12px 0 20px;line-height:1.35}
+.review-content #analysis-form label{grid-column:auto;margin-top:15px;color:#425237}
+.review-content #analysis-form textarea{min-height:190px;background:#f9faf4;border-color:#bac6ae;color:#26321f;font-size:15px;line-height:1.75}
+.review-content #analysis-form .analysis-options{grid-template-columns:1fr}
+.review-content #analysis-form select{background:#f9faf4;border-color:#bac6ae;color:#26321f}
+.review-content #analysis-form .analysis-caption{font-size:11px;color:#6b775f}
+.review-content #analysis-form .engine-state-mini{color:#54753a;white-space:nowrap}
+.review-content #analysis-form .analyze-submit{display:block;margin-top:20px}
+.review-content #analysis-form .analyze-submit .button{width:100%;font-size:15px;padding:18px}
+.review-content #analyze-help{display:block;margin-top:10px;color:#657558;font-size:10px}
+.review-content #analysis-error{color:#a14c22}
+.accident-settings{border-color:#c2ccb9;margin-top:12px}
+.accident-settings summary{padding:15px 0;color:#415735;font-size:12px}
+.accident-settings summary span{color:#536f3e}
+.accident-settings .checkbox-label{align-items:flex-start}
+.accident-settings .analysis-caption{margin:14px 0}
+.fault-focus{padding:0!important;overflow:hidden;background:#192016;display:grid;grid-template-columns:minmax(320px,.9fr) minmax(0,1.1fr);border-color:#4e613e}
+.verdict-hero{padding:32px;background:linear-gradient(145deg,#25321d,#192116);display:flex;flex-direction:column;justify-content:center}
+.verdict-kicker{font-size:14px;letter-spacing:1px;color:#c8ec9b;margin-bottom:16px}
+.fault-focus .verdict-type{font-size:23px;line-height:1.5;margin:0}
+.verdict-ratios{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:33px 0 24px}
+.party-label{font-size:12px;letter-spacing:2px;color:#b4c3a4}
+.verdict-party h4{font-size:17px;font-weight:500;line-height:1.55;margin:10px 0 8px;min-height:52px}
+.party-value{display:flex;align-items:baseline;gap:5px;letter-spacing:-4px;color:var(--lime)}
+.party-value strong{font-size:clamp(66px,7vw,112px);font-weight:600;line-height:1.1}
+.party-value>span{font-size:28px;letter-spacing:0}
+.party-b .party-value{color:#d8e0d0}
+.fault-focus .verdict-party p{font-size:13px;color:#a9b99a;margin:12px 0 0}
+.ratio-visual{height:9px;display:flex;gap:4px;border-radius:9px;overflow:hidden}
+.ratio-a{background:var(--lime)}.ratio-b{background:#6d835a}
+.fault-focus .verdict-headline{font-size:21px;line-height:1.6;color:#e5efda;margin:23px 0 8px;font-weight:500}
+.verdict-reasons{padding:32px}
+.fault-focus .verdict-reasons h3{font-size:27px;margin:15px 0 19px}
+.fault-focus .verdict-reasons .basis-line{font-size:13px;color:#a0b38f;line-height:1.7;margin-bottom:16px}
+.fault-focus .verdict-reasons .plain-reason{font-size:17px;color:#e1e8da;line-height:1.9;margin:0 0 22px;word-break:keep-all}
+.situation-quote{border-left:2px solid #718c54;padding-left:16px;margin-bottom:23px}
+.situation-quote>span{font-size:11px;color:#97ab83}
+.fault-focus .situation-quote>p{font-size:14px;line-height:1.8;color:#bdcbb0;margin:8px 0 0;overflow-wrap:anywhere}
+.legal-basis{display:grid;gap:15px}
+.legal-basis article{border-top:1px solid #37462d;padding-top:15px}
+.fault-focus .legal-basis a{font-size:14px;color:#d0edaa;line-height:1.7}
+.fault-focus .legal-basis p{font-size:14px;color:#b6c5a8;line-height:1.85;margin:7px 0 0}
+.fault-focus .legal-note{font-size:11px;color:#8fa27e;line-height:1.8;margin-top:22px}
+.verdict-check{grid-column:1/-1;border-top:1px solid #3e4e32;padding:22px 32px;background:#131b10}
+.verdict-check>b{font-size:14px;color:#c4d6b3}
+.fault-focus .verdict-check>p{font-size:15px;margin:8px 0 0;color:#aabd97}
+.verdict-check summary{font-size:12px;padding:16px 0}
+.verdict-check details{border:0}
+.fault-focus.held{display:block;padding:35px!important}
+.fault-focus.held h3{font-size:31px;line-height:1.5}
+.fault-focus.held p{font-size:18px;line-height:1.9}
+.result-diagnostics{border:1px solid #35432c;border-radius:8px;margin:24px 0;padding:0 22px}
+.result-diagnostics>summary{font-size:15px;padding:22px 0}
+.result-diagnostics .result-summary{margin-top:5px}
+.result-diagnostics .result-grid{margin-bottom:22px}
+.results-screen .review-heading{margin-bottom:25px}
+.results-screen .result-notice{font-size:11px;margin-top:20px}
+@media(max-width:1000px){.fault-focus{grid-template-columns:1fr}.verdict-hero{padding:28px}.verdict-reasons{padding:28px}.verdict-party h4{min-height:0}.party-value strong{font-size:84px}.verdict-ratios{margin:25px 0 20px}}
+@media(max-width:760px){.review-content #video-work{display:block}.review-content #video-work>video{position:static;max-height:300px;margin:15px 0 25px}.review-content #analysis-form{display:block}.review-content #analysis-form h3{font-size:23px}.review-content #analysis-form textarea{min-height:160px}.review-content #analysis-form .analysis-form-heading{display:flex}.review-content .file-header{margin-bottom:10px}.party-value strong{font-size:70px}.verdict-hero,.verdict-reasons{padding:23px}.verdict-check{padding:20px 23px}.fault-focus .verdict-reasons .plain-reason{font-size:16px}.fault-focus .verdict-reasons h3{font-size:24px}.verdict-party h4{font-size:15px}.party-value>span{font-size:23px}.result-diagnostics{padding:0 15px}}
+
+/* Korean site name */
+header .brand,footer .brand{display:flex;align-items:center;gap:8px;white-space:normal;min-width:0}
+.brand .brandmark{flex-shrink:0;margin-right:0}
+.brand-name{word-break:keep-all;line-height:1.4}
+header .brand-name{font-size:18px;letter-spacing:-.6px}
+footer .brand-name{font-size:14px;letter-spacing:-.4px}
+@media(max-width:1100px){header nav{gap:14px;font-size:12px}header{gap:16px}header .brand-name{font-size:16px}}
+@media(max-width:850px){header nav{display:none}}
+@media(max-width:650px){header .brand{flex:1;gap:6px}header .brand-name{font-size:14px;max-width:180px}header .brandmark{font-size:23px}header .nav-cta{flex-shrink:0}.screen-app footer .brand-name{font-size:12px}.screen-app footer>span{display:none}.screen-app footer small{display:none}}
