@@ -20,7 +20,7 @@
   signal_uturn_vs_motorcycle:{laws:['signal','uturn'],reason:'유턴 차량이 허용 신호에 따랐고 맞은편 이륜차가 신호를 위반했다는 전제라면, 이륜차의 신호 준수 의무가 중요한 판단 요소입니다. 입력된 설명만으로 신호위반을 확정하지 않으며 실제 신호와 진입 시점을 확인해야 합니다.',check:'유턴 신호·표지, 이륜차의 진입 신호, 각 차량의 교차로 진입 시점'}
  };
  function explain(report,key){
-  if(!report.fault)return {held:true,title:'지금은 과실비율을 정하기 어렵습니다.',reason:'사고 유형을 뒷받침하는 증거가 충분하지 않습니다. 영상의 신호·진행 방향·충돌 전후 장면을 확인해 주세요.',laws:[]};
+  if(!report.fault)return {held:true,title:'지금은 과실비율을 정하기 어렵습니다.',reason:report.recommendation?.reason||'사고 유형을 뒷받침하는 증거가 충분하지 않습니다. 영상의 신호·진행 방향·충돌 전후 장면을 확인해 주세요.',laws:[]};
   const type=types[key]||{laws:['safe'],reason:'양쪽 차량이 당시 도로 상황에 맞게 운전했는지, 위험을 인지하고 피할 수 있었는지를 확인해야 합니다.',check:'진행 방향, 신호, 속도와 충돌 전후 장면'};
   const f=report.fault;
   const subject=f.fault_a>f.fault_b?report.rule.vehicle_a:f.fault_b>f.fault_a?report.rule.vehicle_b:null;
@@ -42,6 +42,8 @@
   const legal=add(reasons,'div',null,'legal-basis');for(const law of info.laws){const item=add(legal,'article');const link=add(item,'a',law.title+' ↗');link.href=law.url;link.target='_blank';link.rel='noopener';add(item,'p',law.text);}
   add(reasons,'p','법 조문은 주의 의무를 설명하며, 표시된 비율 자체를 정하는 규정은 아닙니다. 사고 유형에 대한 프로그램의 예상이며 위반 여부나 최종 과실이 확정된 것은 아닙니다.','legal-note');
   const check=add(container,'div',null,'verdict-check');add(check,'b','추가로 확인하면 좋은 점');add(check,'p',info.check);
+  if(report.recommendation?.premise_source==='user_description_unverified')add(check,'p','후방 추돌이라는 입력 설명을 전제로 계산했습니다. 충돌 상대와 진행 방향을 영상으로 검증한 결과는 아닙니다.');
+  if(report.fault.ratio_change_summary)add(check,'p',report.fault.ratio_change_summary);
   if(report.fault.unknowns?.length){const more=add(check,'details');add(more,'summary','이번 분석에서 확인되지 않은 내용');const ul=add(more,'ul');for(const value of report.fault.unknowns)add(ul,'li',value);}
  }
  root.ClearframeReport={explain,render};

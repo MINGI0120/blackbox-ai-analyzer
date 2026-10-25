@@ -168,7 +168,7 @@ def calculate_direction_similarity(first_features, second_features):
     ) / (first_length * second_length)
 
 
-def recommend_accident_type(
+def _recommend_visual_candidate(
     track_history,
     track_box_history,
     track_classes,
@@ -711,3 +711,59 @@ def recommend_accident_type(
         1 if frame_features is not None else 0
     )
     return best_candidate
+
+
+def recommend_accident_type(*args, **kwargs):
+    """Separate an image-motion candidate from a supported fault-rule decision.
+
+    Bounding-box growth does not identify the collision participant or prove
+    same-direction travel. Text is an unverified premise, not visual evidence.
+    """
+    result = _recommend_visual_candidate(*args, **kwargs)
+    situation = kwargs.get("situation", args[8] if len(args) > 8 else "")
+    text = normalize_text(situation)
+    crossing_description = (
+        "직진" in text
+        and contains_any(text, ("좌측에서", "왼쪽에서", "우측에서", "오른쪽에서", "교차", "측면에서"))
+    )
+    rear_description = contains_any(text, (
+        "앞차를추돌", "앞차와충돌", "앞차후미", "후방추돌", "뒤에서추돌",
+    ))
+    reason = None
+    code = None
+    if crossing_description:
+        code = "crossing_straight_requires_review"
+        reason = (
+            "입력 설명은 교차 방향 직진 차량의 충돌을 가리킵니다. "
+            "이는 사용자가 제공한 정보이며 영상으로 확정한 사실은 아닙니다. "
+            "현재 기준표에는 이 상황에 맞는 검증된 자동 판단 규칙이 없어 "
+            "후방 추돌이나 대로 직진·소로 좌회전 비율을 대신 적용하지 않았습니다. "
+            "충돌 상대, 각 차량의 신호, 진행 방향, 도로 폭과 진입 순서를 확인해야 합니다."
+        )
+    elif result.get("rule_key") == "intersection":
+        code = "intersection_rule_preconditions_missing"
+        reason = (
+            "교차 진행 후보가 있지만 신호 없는 교차로의 대로 직진·소로 좌회전 "
+            "사고라는 기준의 전제가 확인되지 않았습니다. 일반 교차로 사고에 "
+            "특정 좌회전 사고 비율을 적용할 수 없어 판단을 보류했습니다."
+        )
+    elif result.get("rule_key") == "rear_end" and not rear_description:
+        code = "collision_participant_unverified"
+        reason = (
+            "차량의 화면상 크기가 커지는 움직임은 탐지했지만, 그 차량이 실제 "
+            "충돌 상대인지 또는 같은 방향의 앞차인지 확인하지 못했습니다. "
+            "마주 오는 차량도 같은 특징을 보일 수 있어 후방 추돌 과실비율을 "
+            "자동 적용하지 않았습니다. 충돌 전후 장면과 상대 차량의 진행 방향을 확인해 주세요."
+        )
+    if reason:
+        return {
+            "rule_key": None, "confidence": 0, "decision_status": "hold",
+            "title": "사고 유형과 충돌 상대 확인 필요", "reason": reason,
+            "hold_code": code, "visual_candidate": result,
+            "analyzed_vehicle_count": result.get("analyzed_vehicle_count", 0),
+            "alternatives": [],
+        }
+    if result.get("rule_key") == "rear_end":
+        result["reason"] += " 후방 추돌이라는 입력 설명을 전제로 한 후보이며 충돌 상대를 영상으로 검증한 결과는 아닙니다."
+        result["premise_source"] = "user_description_unverified"
+    return result

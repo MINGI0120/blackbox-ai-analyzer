@@ -378,6 +378,13 @@ def estimate_fault_ratio(
             f"시작값 {int(base_a)}:{int(100 - base_a)}을 유지했습니다."
         )
 
+    if not allow_extreme and not any(item["effect"] for item in evidence) and final_a != int(base_a):
+        ratio_change_summary = (
+            f"기준값 {int(base_a)}:{int(100 - base_a)}을 프로그램의 "
+            f"5~95% 표시 제한으로 {final_a}:{final_b}로 조정했습니다. "
+            "상대방의 과실을 입증하는 추가 증거를 발견해서 조정한 값이 아닙니다."
+        )
+
     if unknowns:
         uncertainty_summary = (
             f"{', '.join(unknowns)} 정보가 확인되지 않아 "
@@ -402,7 +409,7 @@ def estimate_fault_ratio(
         "evidence": evidence,
         "unknowns": unknowns,
         "allow_extreme": allow_extreme,
-        "calculation_method": "공식 기준 사전확률 + 영상·행동 증거 점수 융합",
+        "calculation_method": "유형별 고정 기준값 + 규칙 기반 가감 + 표시 제한 (통계적 확률 모델 아님)",
         "headline": headline,
         "situation_summary": situation_summary,
         "ratio_change_summary": ratio_change_summary,
