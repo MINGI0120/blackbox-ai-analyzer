@@ -4,8 +4,18 @@ import shutil
 import hashlib
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit import config as streamlit_config
 from cloud_runtime import CloudJob
 from fault_rules import FAULT_RULES
+
+# Frequent fragment reruns can reference a ForwardMsg already evicted by the
+# browser (Cached ForwardMsg MISS). Send complete messages instead. Keep the
+# threshold above the transport limit so no valid message becomes cacheable.
+# Set this before rendering, including when launched without a config.toml.
+streamlit_config.set_option(
+    'global.minCachedMessageSize',
+    int(streamlit_config.get_option('server.maxMessageSize')) * 1024 * 1024 + 1,
+)
 
 ASSET_NAMES = ('robot-scene.html', 'index.html', 'app.js', 'flow.js', 'analysis.js', 'cloud-bridge.js', 'report-view.js', 'style.css', 'flow.css', 'analysis.css', 'refinements.css')
 ROOT = Path(__file__).parent
