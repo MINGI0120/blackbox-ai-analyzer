@@ -4,6 +4,7 @@ from accident_classifier import recommend_accident_type
 
 
 CASES = [
+ ('alley_entry','골목길 직진 중 왼쪽에서 차량이 갑자기 진입해 충돌했습니다.'),
  ('rear_end','앞차를 추돌했습니다.'),
  ('stopped_rear_end','신호 대기 중 뒤에서 추돌했습니다.'),
  ('lane_change','옆 차량이 차로 변경 중 충돌했습니다.'),
@@ -57,7 +58,7 @@ def test_conflicting_events_retained_without_selecting_ratio():
 
 
 def test_crossing_description_has_no_false_visual_confirmation():
-    result=recommend_accident_type({}, {}, {},1280,720,situation=CASES[7][1])
+    result=recommend_accident_type({}, {}, {},1280,720,situation='직진차량이랑 좌측에서 직진하는 차량이랑 추돌')
     assert result['type_candidates'][0]['key']=='crossing_straight'
     assert result['classification_source']=='user_description'
     assert result['visual_evidence']==[]

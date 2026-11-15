@@ -52,6 +52,14 @@
    const keys=(rec.type_candidates||[]).map(x=>x.compatible_rule||x.key);
    for(const k of [...new Set(keys)]){const type=types[k];if(type){add(container,'p',type.reason);for(const name of type.laws){const law=laws[name];const row=add(container,'article',null,'verdict-check');const link=add(row,'a',law.title+' ↗');link.href=law.url;link.target='_blank';link.rel='noopener';add(row,'p',law.text);}}}
   }
+  const approach=rec.approach_assessment;
+  if(approach){
+   const observed=add(container,'div',null,'verdict-check approach-assessment');
+   add(observed,'b',approach.short_lateral_approach?'짧은 시간의 측면 접근 단서':'측면 접근 시간 분석');
+   add(observed,'p',`주요 후보 차량 #${approach.track_id} · 최초 탐지 → 화면상 크기 최대: ${Number(approach.observed_seconds).toFixed(2)}초`);
+   add(observed,'p',approach.limitation);
+   add(observed,'p',approach.road_context==='alley_user_reported'?'도로 환경: 골목길 (사용자 설명 기반)':'도로 환경: 영상만으로 확정하지 못했습니다.');
+  }
   const choices=report.legal_review?.review_options||[];
   if(info.held && choices.length){
    const confirmation=add(container,'div',null,'verdict-check scenario-confirmation');
@@ -111,7 +119,7 @@
    if(rec.visual_evidence?.length){add(more,'b','영상에서 얻은 단서');for(const value of rec.visual_evidence)add(more,'p',value);}
    return;
   }
-  if(info.held){container.className='result-block fault-focus held';add(container,'div','사고 분석 및 법적 검토','verdict-kicker');add(container,'h3',rec.temporal_candidates?.length?'영상에서 측면 접근 차량을 찾았습니다.':rec.type_candidates?.length?'사고 유형 후보를 찾았습니다. 과실비율은 추가 확인이 필요합니다.':info.title);add(container,'p',info.reason);legalReview();scenarioDetails();return;}
+  if(info.held){container.className='result-block fault-focus held';add(container,'div','사고 분석 및 법적 검토','verdict-kicker');add(container,'h3',report.legal_review?.title==='골목길 측면 진입 사고 검토'?'골목길 측면 진입 사고를 별도로 검토합니다.':rec.temporal_candidates?.length?(rec.title||'영상에서 측면 접근 차량을 찾았습니다.'): rec.type_candidates?.length?'사고 유형 후보를 찾았습니다. 과실비율은 추가 확인이 필요합니다.':info.title);add(container,'p',info.reason);legalReview();scenarioDetails();return;}
   container.className='result-block fault-focus';
   const hero=add(container,'div',null,'verdict-hero');add(hero,'div','예상 과실비율','verdict-kicker');add(hero,'h3',report.rule.name,'verdict-type');
   const ratios=add(hero,'div',null,'verdict-ratios');

@@ -817,17 +817,44 @@ def apply_temporal_evidence(result, history, width, height, fps):
                 'side': '왼쪽' if start_x < .5 else '오른쪽',
                 'peak_area_ratio': round(area, 4), 'area_growth': round(growth, 2),
                 'contact_confirmed': False})
+    for c in candidates:
+        obs = observations[c['track_id']]
+        to_peak = [(f, b) for f, b in obs if f <= c['peak_frame']]
+        duration = (c['peak_frame'] - c['start_frame']) / max(fps, 1)
+        span = c['peak_frame'] - c['start_frame'] + 1
+        gaps = [b[0]-a[0] for a,b in zip(to_peak, to_peak[1:])]
+        first_box, last_box = to_peak[0][1], to_peak[-1][1]
+        travel = abs((last_box[0]+last_box[2]-first_box[0]-first_box[2]) / (2*max(width,1)))
+        c['observed_approach_seconds'] = round(duration, 2)
+        c['short_lateral_approach'] = bool(.2 <= duration <= 1.5 and travel >= .15
+            and c['peak_area_ratio'] >= .10 and len(to_peak)/span >= .65
+            and max(gaps, default=0)/max(fps,1) <= .25)
     if not candidates:
         return result
     candidates.sort(key=lambda c: c['peak_area_ratio'], reverse=True)
     best = candidates[0]
+    alley = any(x['key'] == 'alley_entry' for x in result.get('type_candidates', []))
+    short = best['short_lateral_approach']
+    approach = {
+        'short_lateral_approach': short,
+        'observed_seconds': best['observed_approach_seconds'],
+        'track_id': best['track_id'],
+        'road_context': 'alley_user_reported' if alley else 'unconfirmed',
+        'limitation': '최초 탐지부터 화면상 크기 최대까지의 관측 시간입니다. 실제 최초 노출·충돌 시점이나 운전자의 반응 시간은 아닙니다. 가림 또는 추적 번호 변경으로 짧아질 수 있습니다.'
+    }
     evidence = [f"차량 #{c['track_id']}: {c['start_seconds']}초부터 {c['side']}에서 접근, {c['peak_seconds']}초에 화면상 크기 최대. 실제 접촉 여부는 미확인입니다." for c in candidates[:3]]
+    evidence.insert(0, f"주요 후보 차량 #{best['track_id']}: 최초 탐지부터 화면상 크기 최대까지 {best['observed_approach_seconds']:.2f}초. "
+        + ('짧은 시간의 측면 접근 조건에 해당합니다.' if short else '짧은 시간의 측면 접근 조건에는 해당하지 않습니다.'))
+    detail = ('골목길 진입이라는 입력 설명과 차량별 이동 단서를 함께 검토했습니다. ' if alley else '')
+    detail += (f"차량 #{best['track_id']}이 {best['start_seconds']}초에 탐지된 뒤 {best['observed_approach_seconds']:.2f}초 동안 측면에서 접근했습니다. " if short else '')
+    detail += '도로 환경, 시야 가림과 진입 전 정지 여부를 확인해야 합니다. 짧은 탐지 시간만으로 과속·불가항력·일방 과실을 확정하지 않습니다.'
     return {**result, 'rule_key': None, 'confidence': 0, 'decision_status': 'hold',
+        'approach_assessment': approach,
         'requires_rule_review': True, 'visual_candidate': None,
         'visual_evidence': evidence, 'temporal_candidates': candidates[:3],
         'classification_source': 'visual_motion_and_description' if result.get('type_candidates') else 'visual_motion',
-        'title': '측면 접근 차량과 충돌 구간 후보를 찾았습니다',
-        'reason': f"영상의 차량별 시간 순서와 이동 경로를 분석해 {best['side']} 접근 차량을 찾았습니다. "
+        'title': '골목길 측면 진입 사고를 별도로 검토합니다' if alley else '짧은 시간에 측면에서 접근한 차량을 찾았습니다' if short else '측면 접근 차량과 충돌 구간 후보를 찾았습니다',
+        'reason': detail if alley or short else f"영상의 차량별 시간 순서와 이동 경로를 분석해 {best['side']} 접근 차량을 찾았습니다. "
                   '마주 오거나 지나가는 차량의 크기 증가를 후방 추돌 근거로 적용하지 않습니다. '
                   '측면 접근만으로 교차로 직진·회전·차로 변경과 실제 접촉을 확정할 수 없어 과실비율은 보류합니다.',
         'required_checks': list(dict.fromkeys(['접근 차량이 실제 충돌 상대인지', '교차 진행·회전·차로 변경 구분'] + result.get('required_checks', [])))}

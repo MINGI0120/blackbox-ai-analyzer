@@ -13,6 +13,11 @@ def spec(key, title, groups, checks, rule=None, supersedes=()):
 
 # Each group must match within one non-negated clause. Alternatives use |.
 SCENARIOS = [
+    spec('alley_entry', '골목길 측면 진입·급접근 사고',
+         [r'골목|이면도로|주택가|좁은길|좁은도로', r'갑자기|튀어나|불쑥|급진입|급하게|돌발|진입|나오'],
+         ['골목 교차로인지 건물·주차장 출입구인지', '양측 시야 가림과 일시정지·서행 여부',
+          '실제 충돌 상대와 진입 방향', '신호·표지 및 도로 폭', '충돌 직전 제동·회피 가능성'],
+         supersedes=('crossing_straight', 'starting')),
     spec('rear_end', '동일 방향 후방 추돌', [r'앞차.{0,4}(추돌|충돌)|앞차후미|후방추돌|뒤에서.{0,4}(추돌|충돌)|뒤차.{0,4}(추돌|충돌)'],
          ['실제 충돌 상대', '두 차량의 동일 방향 진행', '급제동·끼어들기 여부'], 'rear_end'),
     spec('stopped_rear_end', '정차·신호대기 차량 후방 추돌', [r'정차|신호대기|정지중', r'후방|뒤에서|뒤차|앞차'],
