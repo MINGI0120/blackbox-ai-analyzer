@@ -52,6 +52,7 @@
    const keys=(rec.type_candidates||[]).map(x=>x.compatible_rule||x.key);
    for(const k of [...new Set(keys)]){const type=types[k];if(type){add(container,'p',type.reason);for(const name of type.laws){const law=laws[name];const row=add(container,'article',null,'verdict-check');const link=add(row,'a',law.title+' ↗');link.href=law.url;link.target='_blank';link.rel='noopener';add(row,'p',law.text);}}}
   }
+  function approachDetails(){
   const approach=rec.approach_assessment;
   if(approach){
    const observed=add(container,'div',null,'verdict-check approach-assessment');
@@ -59,6 +60,7 @@
    add(observed,'p',`주요 후보 차량 #${approach.track_id} · 최초 탐지 → 화면상 크기 최대: ${Number(approach.observed_seconds).toFixed(2)}초`);
    add(observed,'p',approach.limitation);
    add(observed,'p',approach.road_context==='alley_user_reported'?'도로 환경: 골목길 (사용자 설명 기반)':'도로 환경: 영상만으로 확정하지 못했습니다.');
+  }
   }
   const choices=report.legal_review?.review_options||[];
   if(info.held && choices.length){
@@ -90,36 +92,41 @@
     panel.replaceChildren();buttons.forEach((b,i)=>b.setAttribute('aria-pressed',String(i===index)));
     const item=references[index], values=item.ratio.split(':').map(Number);
     const hero=add(panel,'div',null,'verdict-hero');
-    add(hero,'div','조건부 참고 과실비율 · 영상의 확정 판정 아님','verdict-kicker');
+    add(hero,'div','가정 기반 참고 과실비율 · 확정 판정 아님','verdict-kicker');
     add(hero,'h3',choices.find(x=>x.key===report.legal_review.selected_key)?.title||rec.type_candidates?.[0]?.title||'사고 유형별 기본 기준','verdict-type');
     add(hero,'p',item.condition,'reference-condition');
+    if(report.legal_review.assumptions?.length){
+     const assumptions=add(hero,'div',null,'verdict-check');add(assumptions,'b','이 비율에 적용한 미확인 가정');
+     const ul=add(assumptions,'ul');for(const value of [item.condition, '실제 신호·표지·진입 순서의 영상 검증 전', '속도·서행·회피 가능성 가감은 미적용'])add(ul,'li',value);
+    }
     const mapping=add(hero,'label',null,'vehicle-mapping');
     const isSide=item.a==='우측 도로 차량'&&item.b==='좌측 도로 차량';
     add(mapping,'span',isSide?'상대 차량은 어느 쪽 도로에서 왔나요?':'블랙박스 차량은 어느 역할인가요?');
     const select=add(mapping,'select');select.setAttribute('aria-label',isSide?'상대 차량 진입 방향':'블랙박스 차량 역할');
     [['','선택해 주세요'],['a',isSide?'상대 차량이 왼쪽에서 진입':item.a],['b',isSide?'상대 차량이 오른쪽에서 진입':item.b]].forEach(([v,t])=>{const o=add(select,'option',t);o.value=v;});
-    select.value=vehicleChoices.get(index)||'';select.onchange=()=>{vehicleChoices.set(index,select.value);showReference(index);};
+    select.value=vehicleChoices.has(index)?vehicleChoices.get(index):(item.suggested_mapping||'');select.onchange=()=>{vehicleChoices.set(index,select.value);showReference(index);};
     const mapped=!!select.value, reverse=select.value==='b';
-    const displayValues=mapped?(reverse?[values[1],values[0]]:values):[null,null];
-    const roles=mapped?(reverse?[item.b,item.a]:[item.a,item.b]):['역할 선택 필요','역할 선택 필요'];
+    const displayValues=reverse?[values[1],values[0]]:values;
+    const roles=reverse?[item.b,item.a]:[item.a,item.b];
     const ratios=add(hero,'div',null,'verdict-ratios');
-    for(let i=0;i<2;i++){const col=add(ratios,'article',null,'verdict-party party-'+(i?'b':'a'));add(col,'span',roles[i],'party-label');add(col,'h4',i?'상대 차량':'블랙박스 차량');const value=add(col,'div',null,'party-value');add(value,'strong',mapped?String(displayValues[i]):'—');if(mapped)add(value,'span','%');}
-    const bar=add(hero,'div',null,'ratio-visual');bar.setAttribute('aria-hidden','true');for(let i=0;i<2;i++){const part=add(bar,'span',null,i?'ratio-b':'ratio-a');part.style.width=(mapped?displayValues[i]:50)+'%';if(!mapped)part.style.opacity='.2';}
+    for(let i=0;i<2;i++){const col=add(ratios,'article',null,'verdict-party party-'+(i?'b':'a'));add(col,'span',roles[i],'party-label');add(col,'h4',mapped?(i?'상대 차량':'블랙박스 차량'):(i?'기준 차량 B':'기준 차량 A'));const value=add(col,'div',null,'party-value');add(value,'strong',String(displayValues[i]));add(value,'span','%');}
+    const bar=add(hero,'div',null,'ratio-visual');bar.setAttribute('aria-hidden','true');for(let i=0;i<2;i++){const part=add(bar,'span',null,i?'ratio-b':'ratio-a');part.style.width=displayValues[i]+'%';}
     add(hero,'p','위 조건이 충족될 때의 기본 비율입니다.','verdict-headline');
-    add(hero,'p',mapped?'선택하신 차량 역할을 기준으로 연결한 참고 비율이며 영상으로 확인된 역할은 아닙니다.':`차량 역할을 선택하면 비율이 연결됩니다. 원래 기준: ${item.a} ${values[0]}% / ${item.b} ${values[1]}%.`,'analysis-caption');
-    const reasons=add(panel,'div',null,'verdict-reasons');add(reasons,'div','WHY THIS REFERENCE','eyebrow muted');add(reasons,'h3','이 기준을 참고하는 이유');add(reasons,'p',item.reason,'plain-reason');add(reasons,'p',report.legal_review.summary,'basis-line');
+    add(hero,'p',vehicleChoices.has(index)?(mapped?'사용자가 선택한 역할에 따른 참고 비율입니다.':'블랙박스·상대 차량 역할 미확인: 기준표의 역할별 비율입니다.'):(item.mapping_basis||'블랙박스·상대 차량 역할 미확인: 기준표의 역할별 비율입니다.'),'analysis-caption');
+    const reasons=add(panel,'div',null,'verdict-reasons');add(reasons,'div','WHY THIS REFERENCE','eyebrow muted');add(reasons,'h3','이 비율을 표시한 이유');add(reasons,'p',item.reason,'plain-reason');add(reasons,'p',report.legal_review.summary,'basis-line');
     if(report.situation){const quote=add(reasons,'div',null,'situation-quote');add(quote,'span','입력하신 사고 상황');add(quote,'p',report.situation);}
     const link=add(reasons,'a','손해보험협회 기준 원문 ↗','reference-source');link.href=item.url;link.target='_blank';link.rel='noopener';
-    const legal=add(reasons,'div',null,'legal-basis');const legalItems=report.legal_review.laws||[];const selected=index===0?2:0;const other=add(reasons,'details',null,'reference-more-laws');add(other,'summary','관련 법 조항 더 보기');for(const [lawIndex,law] of legalItems.entries()){const row=add(lawIndex===selected||lawIndex===legalItems.length-1?legal:other,'article');const a=add(row,'a',law.title+' ↗');a.href=law.url;a.target='_blank';a.rel='noopener';add(row,'p',law.text);}
+    const legal=add(reasons,'div',null,'legal-basis');const legalItems=report.legal_review.laws||[];const selected=index===0?legalItems.findIndex(x=>x.title.includes('제26조 제3항')):legalItems.findIndex(x=>x.title.includes(index===1?'제26조 제1항':'제26조 제2항'));const other=add(reasons,'details',null,'reference-more-laws');add(other,'summary','관련 법 조항 더 보기');for(const [lawIndex,law] of legalItems.entries()){const row=add(lawIndex===selected||lawIndex===legalItems.length-1?legal:other,'article');const a=add(row,'a',law.title+' ↗');a.href=law.url;a.target='_blank';a.rel='noopener';add(row,'p',law.text);}
    }
    references.forEach((item,i)=>{const button=add(tabs,'button',item.condition.split(' · ').pop(),'reference-tab');button.type='button';button.onclick=()=>showReference(i);buttons.push(button);});
    showReference(0);
-   const more=add(container,'div',null,'verdict-check');add(more,'b','실제 과실비율을 정하려면 추가 확인이 필요합니다');add(more,'p',info.reason);add(more,'p',report.legal_review.notice.replace('아래 비율','표시된 비율'));
+   approachDetails();
+   const more=add(container,'div',null,'verdict-check');add(more,'b','비율을 바꿀 수 있는 추가 확인 사항');add(more,'p',report.legal_review.notice.replace('아래 비율','표시된 비율'));
    if(rec.required_checks?.length){const ul=add(more,'ul');for(const check of rec.required_checks)add(ul,'li',check);}
    if(rec.visual_evidence?.length){add(more,'b','영상에서 얻은 단서');for(const value of rec.visual_evidence)add(more,'p',value);}
    return;
   }
-  if(info.held){container.className='result-block fault-focus held';add(container,'div','사고 분석 및 법적 검토','verdict-kicker');add(container,'h3',report.legal_review?.title==='골목길 측면 진입 사고 검토'?'골목길 측면 진입 사고를 별도로 검토합니다.':rec.temporal_candidates?.length?(rec.title||'영상에서 측면 접근 차량을 찾았습니다.'): rec.type_candidates?.length?'사고 유형 후보를 찾았습니다. 과실비율은 추가 확인이 필요합니다.':info.title);add(container,'p',info.reason);legalReview();scenarioDetails();return;}
+  if(info.held){approachDetails();container.className='result-block fault-focus held';add(container,'div','사고 분석 및 법적 검토','verdict-kicker');add(container,'h3',report.legal_review?.title==='골목길 측면 진입 사고 검토'?'골목길 측면 진입 사고를 별도로 검토합니다.':rec.temporal_candidates?.length?(rec.title||'영상에서 측면 접근 차량을 찾았습니다.'): rec.type_candidates?.length?'사고 유형 후보를 찾았습니다. 과실비율은 추가 확인이 필요합니다.':info.title);add(container,'p',info.reason);legalReview();scenarioDetails();return;}
   container.className='result-block fault-focus';
   const hero=add(container,'div',null,'verdict-hero');add(hero,'div','예상 과실비율','verdict-kicker');add(hero,'h3',report.rule.name,'verdict-type');
   const ratios=add(hero,'div',null,'verdict-ratios');

@@ -28,7 +28,9 @@ def test_alley_overrides_generic_crossing():
  types=classify_description('골목길에서 직진 중 왼쪽에서 차량이 갑자기 진입해 충돌')
  assert [x['key'] for x in types]==['alley_entry']
  review=build_legal_review({'type_candidates':types})
- assert not review['conditional_ratios']
+ assert review['conditional_ratios'][0]['ratio']=='40 : 60'
+ assert review['provisional_estimate']['kind']=='assumption_based_reference'
+ assert review['provisional_estimate']['camera_percent'] is None
  assert '제31조' in review['laws'][0]['title']
 
 def test_negative_and_ordinary_alley_not_sudden_accident():
