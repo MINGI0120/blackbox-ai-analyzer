@@ -95,11 +95,7 @@
     add(hero,'div','가정 기반 참고 과실비율 · 확정 판정 아님','verdict-kicker');
     add(hero,'h3',choices.find(x=>x.key===report.legal_review.selected_key)?.title||rec.type_candidates?.[0]?.title||'사고 유형별 기본 기준','verdict-type');
     add(hero,'p',item.condition,'reference-condition');
-    if(report.legal_review.assumptions?.length){
-     const assumptions=add(hero,'div',null,'verdict-check');add(assumptions,'b','이 비율에 적용한 미확인 가정');
-     const ul=add(assumptions,'ul');for(const value of [item.condition, '실제 신호·표지·진입 순서의 영상 검증 전', '속도·서행·회피 가능성 가감은 미적용'])add(ul,'li',value);
-    }
-    const mapping=add(hero,'label',null,'vehicle-mapping');
+    const mapping=doc.createElement('label');mapping.className='vehicle-mapping';
     const isSide=item.a==='우측 도로 차량'&&item.b==='좌측 도로 차량';
     add(mapping,'span',isSide?'상대 차량은 어느 쪽 도로에서 왔나요?':'블랙박스 차량은 어느 역할인가요?');
     const select=add(mapping,'select');select.setAttribute('aria-label',isSide?'상대 차량 진입 방향':'블랙박스 차량 역할');
@@ -113,6 +109,11 @@
     const bar=add(hero,'div',null,'ratio-visual');bar.setAttribute('aria-hidden','true');for(let i=0;i<2;i++){const part=add(bar,'span',null,i?'ratio-b':'ratio-a');part.style.width=displayValues[i]+'%';}
     add(hero,'p','위 조건이 충족될 때의 기본 비율입니다.','verdict-headline');
     add(hero,'p',vehicleChoices.has(index)?(mapped?'사용자가 선택한 역할에 따른 참고 비율입니다.':'블랙박스·상대 차량 역할 미확인: 기준표의 역할별 비율입니다.'):(item.mapping_basis||'블랙박스·상대 차량 역할 미확인: 기준표의 역할별 비율입니다.'),'analysis-caption');
+    hero.append(mapping);
+    if(report.legal_review.assumptions?.length){
+     const assumptions=add(hero,'div',null,'verdict-check');add(assumptions,'b','이 비율에 적용한 미확인 가정');
+     const ul=add(assumptions,'ul');for(const value of [item.condition, '실제 신호·표지·진입 순서의 영상 검증 전', '속도·서행·회피 가능성 가감은 미적용'])add(ul,'li',value);
+    }
     const reasons=add(panel,'div',null,'verdict-reasons');add(reasons,'div','WHY THIS REFERENCE','eyebrow muted');add(reasons,'h3','이 비율을 표시한 이유');add(reasons,'p',item.reason,'plain-reason');add(reasons,'p',report.legal_review.summary,'basis-line');
     if(report.situation){const quote=add(reasons,'div',null,'situation-quote');add(quote,'span','입력하신 사고 상황');add(quote,'p',report.situation);}
     const link=add(reasons,'a','손해보험협회 기준 원문 ↗','reference-source');link.href=item.url;link.target='_blank';link.rel='noopener';
